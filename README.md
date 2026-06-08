@@ -1,80 +1,56 @@
-# Autonomous Multi-Agent Travel Engine ✈️
+🌍 TravelBuddy | Next-Gen AI Travel Orchestration
+TravelBuddy is a production-grade, autonomous travel planning engine that moves beyond simple itinerary generation. By leveraging a 5-Agent Multi-Agent Orchestration architecture, TravelBuddy compares global market pricing, synthesizes social sentiment from travel vlogs and reviews, and synchronizes cross-modal transit logistics (Flights + Trains) into a single, high-fidelity itinerary.
 
-An advanced, production-grade multi-agent AI travel orchestration platform. This system leverages the **Google Gemini 2.5 Flash architecture** coupled with native **Model Context Protocol (MCP)** infrastructure layers to seamlessly coordinate parallel sub-agents (Flight, Hotel, Weather) into a consolidated, dynamic travel layout.
+🚀 The Multi-Agent Ecosystem
+Unlike standard LLM chatbots, TravelBuddy delegates complex tasks to specialized agents running concurrently:
 
----
+Flight Broker Agent: Scrapes and filters multi-provider data to find the lowest market rates.
 
-## 🚀 Core Architecture Modules
+Rail Transit Agent: Evaluates high-speed rail connectivity, ensuring seamless land-based travel options.
 
-The engine features a fully responsive, data-driven web dashboard divided into four synchronized modular layers:
+Accommodation Broker: Aggregates top-rated Hotels and Airbnbs to optimize cost-per-stay.
 
-1. **Travel Planning Portal:** A flexible parameter control configuration panel located in the sidebar, managing real-time coordinates, timeline bounds, and structural budget profiles.
-2. **Travel Chat Assistant & Tracing Terminal:** A live, low-latency agent-to-agent (A2A) trace log window that streams internal cognitive process states, MCP server calls, and tool parameters in real time.
-3. **Expense Dashboard:** A centralized financial accounting view that auto-calculates total travel outlays across airline hubs, accommodation layers, and active daily expenditures—completely localized in **Indian Rupees (INR, ₹)**.
-4. **Interactive Itinerary Builder:** A dynamic, multi-day tabbed system mapping curated travel timelines complete with direct booking action integrations to verified provider web properties.
+Social Sentiment Agent: Parses real-time data from YouTube travel vlogs, Reddit, and Google Reviews to identify "hidden gem" local spots.
 
----
+Master Synthesis Agent: Compiles all agent outputs into a structured, executable travel roadmap with direct booking deep-links.
 
-## 🛠️ Tech Stack & Infrastructure
+📊 Key Features
+Global Market Price Broker: Real-time side-by-side pricing comparisons of Skyscanner, Kayak, Google Flights, Airbnb, and Booking.com.
 
-* **Orchestration Framework:** Python 3.11+, Asyncio (Asynchronous Parallel Tasking)
-* **Intelligence Layer:** Google GenAI SDK (`gemini-2.5-flash`)
-* **Tool Layer:** Model Context Protocol (MCP) Standard Server Protocol
-* **User Interface Layout:** Streamlit Web Application Framework
-* **Environment Security:** Python-Dotenv Layer (Protected API Key Storage)
+Social Sentiment Engine: Doesn't just find locations—it validates them against crowd-sourced sentiment (vlogs/reviews) to ensure your "hidden gems" are actually worth visiting.
 
----
+Telemetry Radar: A dedicated backend diagnostic tab for developers to monitor the "Proof of Work" of every agent in real-time.
 
-## 📦 Project Directory Structure
+Floating AI Companion: A production-grade persistent chat interface for immediate, context-aware travel support.
 
-```text
-travel-planner-agents/
-├── mcp_servers/
-│   └── travel_mcp.py        # Core MCP infrastructure & vendor databases
-├── app.py                   # Streamlit Orchestrator & Web Layout Engine
-├── orchestrator.py          # Legacy/Alternative execution module
-├── .gitignore               # Strict tracking exclusion filter (.env, caches)
-├── requirements.txt         # Project dependencies map
-└── README.md                # System documentation
-⚙️ Installation & Setup Deployment
-Follow these sequential setup instructions to get the autonomous multi-agent engine running locally on your workstation.
+🛠️ Technology Stack
+Inference Engine: Groq LPU Hardware Acceleration (llama-3.3-70b-versatile).
 
-1. Clone the Workspace
+Concurrency: Asynchronous asyncio parallel tasking (Flight + Train + Hotel + Sentiment agents execute simultaneously).
+
+Frontend: Production-grade Streamlit with custom CSS "Startup UI" branding.
+
+Deployment Ready: Secure environment isolation, automated pricing matrices, and state-persistent UI.
+
+📦 Setup & Deployment
+1. Clone the repository
 Bash
-git clone [https://github.com/prabalvarshney21/travel-planner-agents.git](https://github.com/prabalvarshney21/travel-planner-agents.git)
+git clone https://github.com/prabalvarshney21/travel-planner-agents.git
 cd travel-planner-agents
-2. Configure Local Virtual Environment
-Bash
-python -m venv venv
-# On Windows PowerShell:
-.\venv\Scripts\Activate.ps1
-3. Install System Dependencies
-Bash
-pip install -r requirements.txt
-4. Inject Environment Variables
-Create a file named .env in the root folder and provide your unique API credentials:
+2. Configure Environment
+Create a .env file in the root directory. Ensure this is never committed to Git.
 
 Plaintext
-GEMINI_API_KEY=your_actual_gemini_api_key_here
-(Note: The configuration is fully secured; the .env file is natively blocked by the repository's .gitignore rules to prevent credential leaks).
-
-🖥️ Running the Application
-Execute the engine orchestrator via your local stream console:
-
+GROQ_API_KEY=your_groq_api_key_here
+3. Install Dependencies
 Bash
-python -m streamlit run app.py
-The browser view will spin up automatically on your local port address: http://localhost:8501.
+python -m pip install -r requirements.txt
+4. Run the Engine
+Bash
+streamlit run app.py
+🛡️ Security & Privacy
+TravelBuddy is built with a Security-First mindset:
 
-🔒 Security & Compliance Safeguards
-Credential Isolation: Strict API environment isolation rules enforced across deployment profiles.
+Credential Isolation: All API keys are managed via local .env files, protected by a strictly configured .gitignore.
 
-Resilient Graceful Fallbacks: Equipped with an intelligent localized mock-matrix simulation layer to retain structural layout integrity even during live external gateway latency or 503 server load spikes.
-
-
-### Step 3: How to Push it to GitHub
-Once the file is saved in VS Code, open your integrated terminal (`Ctrl + \``) and run these three commands to send this new file up to your repository:
-
-```powershell
-git add README.md
-git commit -m "Docs: Restore and finalize project README"
-git push origin main
+Data Minimization: No PII (Personally Identifiable Information) or itinerary history is stored in persistent databases; session state is purged upon application restart.
