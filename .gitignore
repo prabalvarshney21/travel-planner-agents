@@ -1,0 +1,13 @@
+# Local environment variables containing API Keys
+.env
+
+# Python caching and virtual environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Streamlit local state
+.streamlit/
