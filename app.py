@@ -4,208 +4,286 @@ import asyncio
 import json
 import streamlit as st
 from dotenv import load_dotenv
-from google import genai
+from groq import AsyncGroq
 
 load_dotenv()
 
-st.set_page_config(page_title="Multi-Agent Autonomous Travel Engine", page_icon="✈️", layout="wide")
+# --- STARTUP PRODUCTION THEME CONFIGURATION ---
+st.set_page_config(
+    page_title="Travel Buddy | Omni-Channel Travel AGENT SUITE", 
+    page_icon="✈️", 
+    layout="wide", 
+    initial_sidebar_state="expanded"
+)
 
+# Premium Custom CSS Injection for Global Styling
 st.markdown("""
     <style>
-    .main-header { font-size: 2.2rem; font-weight: 700; color: #1E293B; margin-bottom: 1.5rem; }
-    .card { background-color: #F8FAFC; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #E2E8F0; margin-bottom: 1rem; }
-    .terminal-box { background-color: #0F172A; color: #38BDF8; font-family: monospace; padding: 1rem; border-radius: 0.375rem; height: 180px; overflow-y: auto; font-size: 0.9rem; }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    
+    .stApp { background-color: #050505; color: #F1F5F9; }
+    html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
+    
+    /* Elegant Startup Identity Gradient */
+    .brand-title {
+        font-size: 2.6rem; font-weight: 800;
+        background: -webkit-linear-gradient(45deg, #38BDF8, #818CF8, #E879F9);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        letter-spacing: -0.03em; margin-bottom: 0.1rem;
+    }
+    .brand-subtitle { 
+        font-size: 1rem; color: #94A3B8; font-weight: 400; 
+        margin-bottom: 1.5rem; border-bottom: 1px solid #1E293B; padding-bottom: 1rem; 
+    }
+    
+    /* Telemetry Console Custom CSS */
+    .terminal-header { 
+        background-color: #0F172A; color: #94A3B8; padding: 0.5rem 1rem; 
+        font-family: monospace; font-weight: 600; font-size: 0.75rem; 
+        border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; 
+        border: 1px solid #334155; border-bottom: none; 
+    }
+    .terminal-body { 
+        background-color: #000000; color: #10B981; font-family: 'Courier New', monospace; 
+        padding: 1.2rem; border: 1px solid #334155; border-bottom-left-radius: 0.5rem; 
+        border-bottom-right-radius: 0.5rem; height: 300px; overflow-y: auto; 
+        font-size: 0.85rem; line-height: 1.6; box-shadow: inset 0 2px 10px 0 rgba(0,0,0,0.8);
+    }
+    
+    /* Navigation Bar Interface Modifications */
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; background-color: transparent; }
+    .stTabs [data-baseweb="tab"] { 
+        height: 50px; background-color: transparent; color: #64748B; 
+        font-weight: 600; font-size: 0.95rem; transition: all 0.2s;
+    }
+    .stTabs [aria-selected="true"] { 
+        color: #818CF8 !important; border-bottom-color: #818CF8 !important; 
+        border-bottom-width: 3px !important; font-weight: 700;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-if not os.getenv("GEMINI_API_KEY"):
-    st.error("Missing GEMINI_API_KEY in your .env file. Please add it to execute agents.")
+if not os.getenv("GROQ_API_KEY"):
+    st.error("Infrastructure Initialization Failure: Missing global token environment routing.")
     st.stop()
 
-client = genai.Client()
-MODEL_NAME = "gemini-2.5-flash"
+# Initialize Core Execution Layer
+client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+MODEL_NAME = "llama-3.3-70b-versatile"
 
-# --- CHATBOT MEMORY INITIALIZATION ---
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [
-        {"role": "assistant", "content": "Hello! I am your AI Travel Co-Pilot. Ask me anything about flights, hotel alternatives, or custom sightseeing options!"}
-    ]
+# --- MULTI-AGENT MICROSERVICES ---
+async def run_flight_agent(origin: str, dest: str, budget: str) -> str:
+    prompt = f"System: You are an Aviation Broker Agent. Find the best flight route from {origin} to {dest} for a {budget} budget. Output pricing strictly in INR (₹). Provide a direct markdown booking link to MakeMyTrip or Skyscanner. Format as a short, punchy summary."
+    res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], temperature=0.2)
+    return res.choices[0].message.content
 
-# --- CORE AGENT CAPABILITIES ---
-async def run_flight_agent(context: dict) -> str:
-    try:
-        prompt = f"You are the Flight Agent. Select the best flight from this data. You MUST include the exact `booking_url` formatted as a markdown link like [Book Flight Here](URL): {json.dumps(context['raw_flights'])}"
-        response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-        return response.text
-    except Exception:
-        return f"Flight Search Agent (Fallback Active): Selected IndiGo non-stop from {context['origin']} to {context['destination']}. [Book on IndiGo](https://www.goindigo.in/)"
+async def run_train_agent(origin: str, dest: str, budget: str) -> str:
+    prompt = f"System: You are a Rail Transit Agent. Evaluate train connectivity from {origin} to {dest} (e.g., Vande Bharat, Rajdhani, Shatabdi, or EuroRail if international). Output pricing strictly in INR (₹). Provide a direct markdown booking link to IRCTC or ConfirmTkt. If no trains exist, state 'No viable rail routes'."
+    res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], temperature=0.2)
+    return res.choices[0].message.content
 
-async def run_hotel_agent(context: dict) -> str:
-    try:
-        prompt = f"You are the Hotel Agent. Select the best hotel from this data. You MUST include the exact `booking_url` formatted as a markdown link like [Book Hotel Here](URL): {json.dumps(context['raw_hotels'])}"
-        response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-        return response.text
-    except Exception:
-        return f"Hotel Agent (Fallback Active): Recommended Taj Properties for your {context['budget_tier']} stay. [Book on Taj Hotels](https://www.tajhotels.com/)"
+async def run_accommodation_agent(dest: str, duration: int, budget: str) -> str:
+    prompt = f"System: You are a Lodging Broker. Find accommodation in {dest} for {duration} days on a {budget} budget. You MUST compare exactly one top Hotel and exactly one top Airbnb. Output total pricing in INR (₹) for the stay. Provide direct markdown links to Booking.com and Airbnb for the properties."
+    res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], temperature=0.2)
+    return res.choices[0].message.content
 
-async def run_weather_agent(context: dict) -> str:
-    try:
-        mock_weather = "Clear skies, mild temperatures ranging from 18°C to 24°C. Perfect for walking tours."
-        prompt = f"You are the Weather Agent. Analyze this forecast for {context['destination']}: '{mock_weather}'. Provide short packing tips."
-        response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-        return response.text
-    except Exception:
-        return f"Weather Agent (Fallback Active): Clear conditions expected in {context['destination']}."
+async def run_social_sentiment_agent(dest: str) -> str:
+    prompt = f"System: You are a Social Sentiment & Review Scraper Agent. Analyze current mocked web data for {dest} (Google Reviews, YouTube travel vlogs, Reddit, TripAdvisor). Identify the top 3 highest-rated hidden gems. Ensure you highlight highly acclaimed vegetarian food spots or street food lanes backed by food vloggers."
+    res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], temperature=0.4)
+    return res.choices[0].message.content
 
-# --- WEB DASHBOARD UI LAYOUT ---
-st.markdown('<div class="main-header">Autonomous Multi-Agent Travel Engine</div>', unsafe_allow_html=True)
+async def run_master_itinerary_agent(duration: int, origin: str, dest: str, flights: str, trains: str, hotels: str, sentiment: str) -> str:
+    prompt = f"""System: You are the Chief Operations Master Itinerary Planner. Synthesize this raw agent data into a polished B2C travel itinerary portfolio for a {duration}-day trip from {origin} to {dest}.
+    
+    [Flight Logistics]: {flights}
+    [Rail Logistics]: {trains}
+    [Accommodation]: {hotels}
+    [Social Sentiment & Top Spots]: {sentiment}
+    
+    Structure your output cleanly with markdown:
+    1. 'Verified Core Logistics': Consolidate all the booking links and INR pricing here.
+    2. 'Day-by-Day Roadmap': Use '### Day X:' headings. Integrate the specific YouTube/Reddit hidden gems and dining spots identified by the Sentiment Agent directly into the daily flow."""
+    res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], temperature=0.3)
+    return res.choices[0].message.content
 
+# --- PERSISTENT STATE LOGISTICS ---
+if "trip_logs" not in st.session_state: st.session_state.trip_logs = ["_ Platform initialized. Core microservices idling..."]
+if "agent_payloads" not in st.session_state: st.session_state.agent_payloads = {}
+if "final_itinerary" not in st.session_state: st.session_state.final_itinerary = None
+
+# --- HEADER INTERFACE ---
+st.markdown('<div class="brand-title">✈️ Aero AI</div>', unsafe_allow_html=True)
+st.markdown('<div class="brand-subtitle">Omni-Channel Aggregator & Social Sentiment Travel Planner</div>', unsafe_allow_html=True)
+
+# --- WORKSPACE CONTROL SIDEPANEL ---
 with st.sidebar:
-    st.header("1. Travel Planning Portal")
-    origin = st.text_input("Origin City", value="Delhi")
-    destination = st.selectbox("Destination City", options=["Mumbai", "Goa", "Paris", "Tokyo"])
-    duration = st.slider("Trip Duration (Days)", min_value=3, max_value=7, value=5)
-    budget_tier = st.radio("Budget Profile", options=["Budget", "Moderate", "Luxury"], index=2)
+    st.subheader("Journey Parameters")
+    origin = st.text_input("Origin City", placeholder="e.g., Aligarh, New Delhi...")
+    destination = st.text_input("Destination Hub", placeholder="e.g., Manali, Paris...")
+    duration = st.slider("Trip Duration (Days)", min_value=1, max_value=14, value=4)
+    budget_tier = st.radio("Financial Capital Tier", options=["Budget", "Moderate", "Luxury"], index=1)
     
-    generate_btn = st.button("Generate Autonomous Travel Plan", type="primary", use_container_width=True)
+    st.markdown("---")
+    generate_btn = st.button("Initialize Optimization Routine", type="primary", use_container_width=True)
+    st.caption("Deployment: **Production Gateway v3.0**")
 
-base_days = duration
-multiplier = {"Budget": 4000, "Moderate": 12000, "Luxury": 30000}[budget_tier]
-flight_cost = {"Budget": 12000, "Moderate": 25000, "Luxury": 55000}[budget_tier]
-hotel_cost = base_days * multiplier
-activity_cost = base_days * {"Budget": 2500, "Moderate": 6000, "Luxury": 12000}[budget_tier]
-total_estimated_cost = flight_cost + hotel_cost + activity_cost
+# --- CONTEXT PRICE CALCULATOR ENGINE (Mock Aggregator Data) ---
+base_mult = {"Budget": 2500, "Moderate": 7500, "Luxury": 22000}[budget_tier]
+f_base = {"Budget": 6000, "Moderate": 15000, "Luxury": 45000}[budget_tier]
 
-col_left, col_right = st.columns([1, 1])
+flight_matrix = {
+    "Skyscanner": f_base,
+    "Kayak": int(f_base * 1.05),
+    "Google Flights": int(f_base * 0.96)  
+}
+hotel_matrix = {
+    "Booking.com": base_mult * duration,
+    "Airbnb": int((base_mult * duration) * 0.92),  
+    "Agoda": int((base_mult * duration) * 1.04)
+}
 
-with col_left:
-    st.subheader("2. System Monitoring & Chat Engine")
+best_flight = min(flight_matrix.values())
+best_hotel = min(hotel_matrix.values())
+activity_outlay = duration * {"Budget": 1500, "Moderate": 4500, "Luxury": 12000}[budget_tier]
+net_startup_cost = best_flight + best_hotel + activity_outlay
+
+# --- GRAPHICAL INTERFACE WORKSPACE ---
+tab_dash, tab_itinerary, tab_telemetry, tab_chat = st.tabs([
+    "📊 Global Market Broker",
+    "🗺️ Master Execution Itinerary", 
+    "⚙️ Individual Agent Telemetry",
+    "💬 Interactive AI Co-Pilot" 
+])
+
+# ==========================================
+# TAB 1: MARKET PRICE BROKER & COMPARISON
+# ==========================================
+with tab_dash:
+    st.subheader("Real-Time Multi-Platform Pricing Discrepancies")
     
-    # Trace Log Dashboard Wrapped in an Expander for Spatial Management
-    with st.expander("🛠️ Multi-Agent Trace Log Terminal", expanded=True):
-        log_placeholder = st.empty()
-        log_placeholder.markdown('<div class="terminal-box">_ Multi-Agent trace log standby. Adjust portal inputs and execute engine...</div>', unsafe_allow_html=True)
+    m1, m2, m3, m4 = st.columns(4)
+    with m1: st.container(border=True).metric("Optimized Target Value", f"₹{net_startup_cost:,}", delta="Lowest Market Match", delta_color="normal")
+    with m2: st.container(border=True).metric("Target Transit Unit", f"₹{best_flight:,}")
+    with m3: st.container(border=True).metric("Accommodation Base", f"₹{best_hotel:,}")
+    with m4: st.container(border=True).metric("Operational Daily Capital", f"₹{activity_outlay:,}")
     
-    # Chatbot Interactive Sandbox Layout
-    st.markdown("#### 💬 Chat with Travel Co-Pilot")
-    chat_container = st.container()
+    st.markdown("---")
     
-    with chat_container:
-        for msg in st.session_state.chat_history:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
+    col_f_table, col_h_table = st.columns(2)
+    with col_f_table:
+        st.markdown("### 🛫 Live Transit Aggregator Feeds")
+        st.markdown(f"""
+        | Provider Interface | Rate Basis | Deviation Metrics | Status Profile |
+        | :--- | :--- | :--- | :--- |
+        | **Google Flights** | ₹{flight_matrix['Google Flights']:,} | -4.0% Market Low | 🟢 **Optimal Selection** |
+        | **Skyscanner** | ₹{flight_matrix['Skyscanner']:,} | Base Rate | 🟡 Standard Match |
+        | **Kayak** | ₹{flight_matrix['Kayak']:,} | +5.0% Inefficient | 🔴 Sub-Optimal |
+        """)
+        
+    with col_h_table:
+        st.markdown("### 🏨 Live Lodging Aggregator Feeds")
+        st.markdown(f"""
+        | Provider Interface | Rate Basis | Deviation Metrics | Status Profile |
+        | :--- | :--- | :--- | :--- |
+        | **Airbnb** | ₹{hotel_matrix['Airbnb']:,} | -8.0% Market Low | 🟢 **Optimal Selection** |
+        | **Booking.com** | ₹{hotel_matrix['Booking.com']:,} | Base Rate | 🟡 Standard Match |
+        | **Agoda** | ₹{hotel_matrix['Agoda']:,} | +4.0% Inefficient | 🔴 Sub-Optimal |
+        """)
+
+# ==========================================
+# TAB 2: MASTER ITINERARY OUTPUT
+# ==========================================
+with tab_itinerary:
+    if st.session_state.final_itinerary:
+        with st.container(border=True):
+            st.markdown(st.session_state.final_itinerary)
+    else:
+        st.info("System configuration cache blank. Define origin and destination, then trigger execution.")
+
+# ==========================================
+# TAB 3: INDIVIDUAL AGENT RAW OUTPUTS
+# ==========================================
+with tab_telemetry:
+    st.subheader("Raw Agent Microservice Payloads")
+    if st.session_state.agent_payloads:
+        c1, c2 = st.columns(2)
+        with c1:
+            with st.expander("🛫 Flight Broker Agent Output", expanded=True):
+                st.markdown(st.session_state.agent_payloads.get('flight', 'No data.'))
+            with st.expander("🚆 Rail Transit Agent Output", expanded=True):
+                st.markdown(st.session_state.agent_payloads.get('train', 'No data.'))
+        with c2:
+            with st.expander("🏨 Accommodation Broker (Hotel & Airbnb)", expanded=True):
+                st.markdown(st.session_state.agent_payloads.get('hotel', 'No data.'))
+            with st.expander("📱 Social Sentiment & Vlog Agent", expanded=True):
+                st.markdown(st.session_state.agent_payloads.get('sentiment', 'No data.'))
                 
-    if chat_input := st.chat_input("Ask a follow-up question regarding your trip..."):
-        st.session_state.chat_history.append({"role": "user", "content": chat_input})
-        with chat_container:
-            with st.chat_message("user"):
-                st.write(chat_input)
+        st.markdown("---")
+        st.markdown('<div class="terminal-header">A2A System Operations Trace</div>', unsafe_allow_html=True)
+        log_content = "<br>".join(st.session_state.trip_logs)
+        st.markdown(f'<div class="terminal-body">{log_content}</div>', unsafe_allow_html=True)
+    else:
+        st.info("Execute pipeline to view multi-agent JSON and Markdown payloads.")
+
+# ==========================================
+# TAB 4: INTERACTIVE CONSOLE CHATBOT
+# ==========================================
+with tab_chat:
+    if "travel_chat" not in st.session_state:
+        st.session_state.travel_chat = [{"role": "assistant", "content": "Aero AI core online. Query me regarding visa requirements, forex exchange rates, or deep-link booking assistance."}]
+        
+    chat_box = st.container(height=400, border=True)
+    with chat_box:
+        for msg in st.session_state.travel_chat:
+            with st.chat_message(msg["role"]): st.write(msg["content"])
                 
-        with chat_container:
+    if chat_input := st.chat_input("Ask about local transport passes, safety, or weather conditions..."):
+        st.session_state.travel_chat.append({"role": "user", "content": chat_input})
+        with chat_box:
+            with st.chat_message("user"): st.write(chat_input)
             with st.chat_message("assistant"):
-                with st.spinner("Processing travel context queries..."):
-                    try:
-                        # Construct historical contextual log payload
-                        prompt_history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history])
-                        prompt_history += f"\nSystem Instruction: You are an expert AI Travel Assistant. Give concise, direct answers regarding travel to {destination}."
-                        
-                        response = client.models.generate_content(
-                            model=MODEL_NAME,
-                            contents=f"{prompt_history}\nassistant:"
-                        )
-                        bot_response = response.text
-                    except Exception:
-                        bot_response = f"I am operating in localized sandbox mode right now, but I can confirm that a {duration}-day trip to {destination} fits your configured travel guidelines perfectly!"
-                    
-                    st.write(bot_response)
-        st.session_state.chat_history.append({"role": "assistant", "content": bot_response})
+                with st.spinner("Accessing global cache directories..."):
+                    history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.travel_chat])
+                    prompt = f"{history}\nSystem: You are a commercial travel asset manager. Provide precise, authoritative counsel.\nassistant:"
+                    async def fetch_chat():
+                        res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}])
+                        return res.choices[0].message.content
+                    bot_reply = asyncio.run(fetch_chat())
+                    st.write(bot_reply)
+        st.session_state.travel_chat.append({"role": "assistant", "content": bot_reply})
 
-with col_right:
-    st.subheader("3. Expense Dashboard")
-    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-    m_col1.metric("Total Estimate", f"₹{total_estimated_cost:,}")
-    m_col2.metric("Flight Hub", f"₹{flight_cost:,}")
-    m_col3.metric("Lodging Layer", f"₹{hotel_cost:,}")
-    m_col4.metric("Daily Outlays", f"₹{activity_cost:,}")
-
-st.markdown("---")
-st.subheader("4. Interactive Itinerary Builder")
-
-# Dynamic Output Section
-output_container = st.container()
-
+# --- BACKEND MULTI-AGENT EXECUTION PIPELINE ---
 if generate_btn:
-    logs = []
-    def update_logs(msg):
-        logs.append(f"> {msg}")
-        log_html = "".join([f"<div>{l}</div>" for l in logs])
-        log_placeholder.markdown(f'<div class="terminal-box">{log_html}</div>', unsafe_allow_html=True)
+    if not origin or not destination:
+        st.error("Protocol failure: Origin and Destination parameters are mandatory.")
+    else:
+        st.session_state.trip_logs = []
+        def log_event(msg):
+            st.session_state.trip_logs.append(f"[ORCHESTRATOR] {msg}")
 
-    update_logs(f"Initializing target matrix coordinates for {destination}...")
-    
-    from mcp_servers.travel_mcp import search_flights, recommend_hotels
-    
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    raw_flights = loop.run_until_complete(search_flights(origin, destination, "2026-10-12"))
-    update_logs("MCP Tool Executed: search_flights -> returned data maps [Status 200]")
-    
-    raw_hotels = loop.run_until_complete(recommend_hotels(destination, budget_tier))
-    update_logs("MCP Tool Executed: recommend_hotels -> synchronized inventory caches [Status 200]")
-    
-    update_logs("Dispatching asynchronous parallel queries to sub-agents...")
-    context = {"origin": origin, "destination": destination, "raw_flights": raw_flights, "raw_hotels": raw_hotels, "budget_tier": budget_tier}
-    
-    flight_res = loop.run_until_complete(run_flight_agent(context))
-    hotel_res = loop.run_until_complete(run_hotel_agent(context))
-    weather_res = loop.run_until_complete(run_weather_agent(context))
-    
-    update_logs("Synthesizing separate streams inside Master Itinerary Agent context...")
-    
-    final_prompt = f"""
-    You are the Master Itinerary Planner. Compile a travel plan for {duration} days from {origin} to {destination}.
-    Flight Selection: {flight_res}
-    Hotel Selection: {hotel_res}
-    Weather Profile: {weather_res}
-    
-    First, create a 'Booking Action Items' section that extracts and displays the direct booking links provided by the sub-agents. 
-    Then, generate the detailed structured daily breakdown. Use 'Day X:' as headers for each day.
-    """
-    
-    try:
-        master_response = client.models.generate_content(model=MODEL_NAME, contents=final_prompt)
-        full_text = master_response.text
-        update_logs("Success: Combined itinerary canvas rendered completely.")
-    except Exception:
-        update_logs("Notice: Initializing local state formatting due to live gateway capacity.")
-        full_text = f"### Booking Action Items\n* {flight_res}\n* {hotel_res}\n\n"
-        fallback_activities = [
-            {"m": f"Arrival and hotel check-in. Brief walking tour around central {destination}.", "a": "Visit primary landmarks and historical districts to establish bearings.", "e": "Welcome dinner at a highly-rated local restaurant."},
-            {"m": "Guided cultural immersion tour based on local heritage.", "a": "Museum or gallery visits, aligned with weather pacing.", "e": "Street food exploration or casual dining in a vibrant neighborhood."},
-            {"m": "Nature walk, park visit, or coastal exploration.", "a": "Shopping at local markets or high-end boutique districts.", "e": "Fine dining selection and evening entertainment."},
-            {"m": "Visit to secondary historical sites or architectural highlights.", "a": "Relaxation time at a scenic viewpoint or the hotel spa.", "e": "Night market visit or sunset cruise."},
-            {"m": "Leisurely breakfast and final souvenir shopping.", "a": "Packing, check-out preparations, and final photos.", "e": "Transit to the airport for departure."}
-        ]
-        for day in range(1, duration + 1):
-            act = fallback_activities[(day - 1) % len(fallback_activities)]
-            full_text += f"Day {day}:\n- **Morning:** {act['m']}\n- **Afternoon:** {act['a']}\n- **Evening:** {act['e']}\n"
+        async def execute_travel_pipeline():
+            log_event(f"Locking spatial variables. Routing {origin} ➡️ {destination}. Budget: {budget_tier}.")
+            log_event("Asynchronous pipeline channel open. Dispatching pricing & sentiment audit requests globally.")
+            
+            # Parallel Execution Architecture - 4 Agents Running Simultaneously
+            log_event("Spawning concurrent runtime context for Flight, Rail, Lodging, and Sentiment sub-agents...")
+            f_res, t_res, h_res, s_res = await asyncio.gather(
+                run_flight_agent(origin, destination, budget_tier),
+                run_train_agent(origin, destination, budget_tier),
+                run_accommodation_agent(destination, duration, budget_tier),
+                run_social_sentiment_agent(destination)
+            )
+            
+            # Store raw payloads for the Telemetry Dashboard
+            st.session_state.agent_payloads = {
+                'flight': f_res, 'train': t_res, 'hotel': h_res, 'sentiment': s_res
+            }
+            
+            log_event("Sub-agent verification matrices evaluated. Injecting outputs to Master Synthesis Engine...")
+            final_text = await run_master_itinerary_agent(duration, origin, destination, f_res, t_res, h_res, s_res)
+            
+            log_event("State pipeline successfully updated. Flushing changes to interactive dashboard.")
+            return final_text
 
-    # Separate the Booking Links from the Day-by-Day schedule
-    parts = full_text.split("Day 1:")
-    booking_section = parts[0]
-    itinerary_days = "Day 1:" + parts[1] if len(parts) > 1 else ""
-
-    with output_container:
-        st.info("### 🔗 Ready to Book? \n" + booking_section)
-        
-        day_tabs = st.tabs([f"Day {i+1}" for i in range(duration)])
-        days_data = itinerary_days.split("Day ")
-        
-        for i in range(duration):
-            with day_tabs[i]:
-                st.markdown(f"### Activity Framework for Day {i+1}")
-                if i+1 < len(days_data):
-                    st.write("Day " + days_data[i+1])
-                else:
-                    st.write("Schedule matrices optimized. Proceed with designated itinerary points.")
+        st.session_state.final_itinerary = asyncio.run(execute_travel_pipeline())
+        st.rerun()
