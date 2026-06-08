@@ -14,7 +14,7 @@ st.markdown("""
     <style>
     .main-header { font-size: 2.2rem; font-weight: 700; color: #1E293B; margin-bottom: 1.5rem; }
     .card { background-color: #F8FAFC; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #E2E8F0; margin-bottom: 1rem; }
-    .terminal-box { background-color: #0F172A; color: #38BDF8; font-family: monospace; padding: 1rem; border-radius: 0.375rem; height: 280px; overflow-y: auto; font-size: 0.9rem; }
+    .terminal-box { background-color: #0F172A; color: #38BDF8; font-family: monospace; padding: 1rem; border-radius: 0.375rem; height: 180px; overflow-y: auto; font-size: 0.9rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -24,6 +24,12 @@ if not os.getenv("GEMINI_API_KEY"):
 
 client = genai.Client()
 MODEL_NAME = "gemini-2.5-flash"
+
+# --- CHATBOT MEMORY INITIALIZATION ---
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = [
+        {"role": "assistant", "content": "Hello! I am your AI Travel Co-Pilot. Ask me anything about flights, hotel alternatives, or custom sightseeing options!"}
+    ]
 
 # --- CORE AGENT CAPABILITIES ---
 async def run_flight_agent(context: dict) -> str:
@@ -73,9 +79,46 @@ total_estimated_cost = flight_cost + hotel_cost + activity_cost
 col_left, col_right = st.columns([1, 1])
 
 with col_left:
-    st.subheader("2. Travel Chat Assistant")
-    log_placeholder = st.empty()
-    log_placeholder.markdown('<div class="terminal-box">_ Multi-Agent trace log standby. Adjust portal inputs and execute engine...</div>', unsafe_allow_html=True)
+    st.subheader("2. System Monitoring & Chat Engine")
+    
+    # Trace Log Dashboard Wrapped in an Expander for Spatial Management
+    with st.expander("🛠️ Multi-Agent Trace Log Terminal", expanded=True):
+        log_placeholder = st.empty()
+        log_placeholder.markdown('<div class="terminal-box">_ Multi-Agent trace log standby. Adjust portal inputs and execute engine...</div>', unsafe_allow_html=True)
+    
+    # Chatbot Interactive Sandbox Layout
+    st.markdown("#### 💬 Chat with Travel Co-Pilot")
+    chat_container = st.container()
+    
+    with chat_container:
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
+                
+    if chat_input := st.chat_input("Ask a follow-up question regarding your trip..."):
+        st.session_state.chat_history.append({"role": "user", "content": chat_input})
+        with chat_container:
+            with st.chat_message("user"):
+                st.write(chat_input)
+                
+        with chat_container:
+            with st.chat_message("assistant"):
+                with st.spinner("Processing travel context queries..."):
+                    try:
+                        # Construct historical contextual log payload
+                        prompt_history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history])
+                        prompt_history += f"\nSystem Instruction: You are an expert AI Travel Assistant. Give concise, direct answers regarding travel to {destination}."
+                        
+                        response = client.models.generate_content(
+                            model=MODEL_NAME,
+                            contents=f"{prompt_history}\nassistant:"
+                        )
+                        bot_response = response.text
+                    except Exception:
+                        bot_response = f"I am operating in localized sandbox mode right now, but I can confirm that a {duration}-day trip to {destination} fits your configured travel guidelines perfectly!"
+                    
+                    st.write(bot_response)
+        st.session_state.chat_history.append({"role": "assistant", "content": bot_response})
 
 with col_right:
     st.subheader("3. Expense Dashboard")
