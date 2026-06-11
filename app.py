@@ -112,8 +112,8 @@ if "agent_payloads" not in st.session_state: st.session_state.agent_payloads = {
 if "final_itinerary" not in st.session_state: st.session_state.final_itinerary = None
 
 # --- HEADER INTERFACE ---
-st.markdown('<div class="brand-title">✈️ Aero AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="brand-subtitle">Omni-Channel Aggregator & Social Sentiment Travel Planner</div>', unsafe_allow_html=True)
+st.markdown('<div class="brand-title">✈️ Travel Buddy</div>', unsafe_allow_html=True)
+st.markdown('<div class="brand-subtitle">MULTI-AGENT TRAVEL PLANNER</div>', unsafe_allow_html=True)
 
 # --- WORKSPACE CONTROL SIDEPANEL ---
 with st.sidebar:
@@ -230,7 +230,7 @@ with tab_telemetry:
 # ==========================================
 with tab_chat:
     if "travel_chat" not in st.session_state:
-        st.session_state.travel_chat = [{"role": "assistant", "content": "Aero AI core online. Query me regarding visa requirements, forex exchange rates, or deep-link booking assistance."}]
+        st.session_state.travel_chat = [{"role": "assistant", "content": "Travel Buddy online. Query me regarding visa requirements, forex exchange rates, or deep-link booking assistance."}]
         
     chat_box = st.container(height=400, border=True)
     with chat_box:
